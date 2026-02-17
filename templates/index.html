@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContiCrew - Content Pipeline Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ContiCrew - Content Pipeline Agent</h1>
+            <p class="subtitle">Generate AI-powered content with SEO and virality optimization</p>
+        </header>
+
+        <main>
+            <form id="content-form">
+                <div class="form-group">
+                    <label for="topic">Topic</label>
+                    <input
+                        type="text"
+                        id="topic"
+                        name="topic"
+                        placeholder="Enter your topic..."
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="content_type">Content Type</label>
+                    <select id="content_type" name="content_type" required>
+                        <option value="">Select content type</option>
+                        <option value="blog_post">Blog Post</option>
+                        <option value="tweet">Tweet</option>
+                        <option value="linkedin_post">LinkedIn Post</option>
+                    </select>
+                </div>
+
+                <button type="submit" id="submit-btn">
+                    <span class="btn-text">Generate Content</span>
+                    <span class="loading-spinner" style="display: none;"></span>
+                </button>
+            </form>
+
+            <div id="result" class="result-container" style="display: none;">
+                <div class="result-header">
+                    <h2>Generated Content</h2>
+                    <div class="score-badge">
+                        <span id="score-label">Score:</span>
+                        <span id="score-value">0</span>/10
+                    </div>
+                </div>
+
+                <div id="content-output"></div>
+
+                <div class="reason-section" id="reason-section" style="display: none;">
+                    <h3>Evaluation Reason</h3>
+                    <p id="reason-text"></p>
+                </div>
+            </div>
+
+            <div id="error" class="error-container" style="display: none;">
+                <p id="error-text"></p>
+            </div>
+        </main>
+
+        <footer>
+            <p>Powered by ContiCrew</p>
+        </footer>
+    </div>
+
+    <script>
+        document.getElementById('content-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const topic = document.getElementById('topic').value;
+            const contentType = document.getElementById('content_type').value;
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = submitBtn.querySelector('.btn-text');
+            const spinner = submitBtn.querySelector('.loading-spinner');
+            const resultContainer = document.getElementById('result');
+            const errorContainer = document.getElementById('error');
+
+            // Reset UI
+            resultContainer.style.display = 'none';
+            errorContainer.style.display = 'none';
+
+            // Show loading
+            btnText.textContent = 'Generating...';
+            spinner.style.display = 'inline-block';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        topic: topic,
+                        content_type: contentType
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Something went wrong');
+                }
+
+                // Display result
+                displayResult(data);
+                resultContainer.style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('error-text').textContent = error.message;
+                errorContainer.style.display = 'block';
+            } finally {
+                btnText.textContent = 'Generate Content';
+                spinner.style.display = 'none';
+                submitBtn.disabled = false;
+            }
+        });
+
+        function displayResult(data) {
+            const contentOutput = document.getElementById('content-output');
+            const scoreValue = document.getElementById('score-value');
+            const scoreLabel = document.getElementById('score-label');
+            const reasonSection = document.getElementById('reason-section');
+            const reasonText = document.getElementById('reason-text');
+
+            // Set score
+            scoreValue.textContent = data.score;
+
+            // Set score label based on content type
+            if (data.content_type === 'blog_post') {
+                scoreLabel.textContent = 'SEO Score:';
+            } else {
+                scoreLabel.textContent = 'Virality Score:';
+            }
+
+            // Set reason if available
+            if (data.reason) {
+                reasonText.textContent = data.reason;
+                reasonSection.style.display = 'block';
+            } else {
+                reasonSection.style.display = 'none';
+            }
+
+            // Build content HTML based on type
+            let contentHtml = '';
+
+            if (data.content_type === 'blog_post') {
+                contentHtml = `
+                    <div class="content-card blog-post">
+                        <div class="content-type-label">Blog Post</div>
+                        <h3 class="blog-title">${escapeHtml(data.content.title)}</h3>
+                        <p class="blog-subtitle">${escapeHtml(data.content.subtitle)}</p>
+                        <div class="blog-sections">
+                            ${data.content.sections.map(section => `<div class="blog-section">${escapeHtml(section)}</div>`).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (data.content_type === 'tweet') {
+                contentHtml = `
+                    <div class="content-card tweet">
+                        <div class="content-type-label">Tweet</div>
+                        <p class="tweet-content">${escapeHtml(data.content.content)}</p>
+                        <p class="tweet-hashtags">${escapeHtml(data.content.hashtags)}</p>
+                    </div>
+                `;
+            } else if (data.content_type === 'linkedin_post') {
+                contentHtml = `
+                    <div class="content-card linkedin-post">
+                        <div class="content-type-label">LinkedIn Post</div>
+                        <p class="linkedin-hook">${escapeHtml(data.content.hook)}</p>
+                        <p class="linkedin-content">${escapeHtml(data.content.content)}</p>
+                        <p class="linkedin-cta">${escapeHtml(data.content.call_to_action)}</p>
+                    </div>
+                `;
+            }
+
+            contentOutput.innerHTML = contentHtml;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>
+

@@ -84,10 +84,23 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
         elif content_type == "linkedin_post":
             return "generate_linkedin_post"
 
-    @listen(or_("generate_blog_post", "regenerate_blog_post"))
+    @listen("generate_blog_post")
     def handle_generate_blog_post(self):
+        self._generate_blog_post()
+        return "blog_post_ready"
 
+    @listen("regenerate_blog_post")
+    def handle_regenerate_blog_post(self):
+        self._generate_blog_post()
+        return "blog_post_ready"
+
+    def _generate_blog_post(self):
         blog_post = self.state.blog_post
+
+        if blog_post is None:
+            print("Generating new blog post...")
+        else:
+            print("Regenerating blog post (improving quality)...")
 
         llm = LLM(model="gpt-5-nano", response_format=BlogPost)
 
@@ -117,10 +130,24 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             )
         self.state.blog_post = result
 
-    @listen(or_("generate_tweet", "regenerate_tweet"))
+    @listen("generate_tweet")
     def handle_generate_tweet(self):
+        self._generate_tweet()
+        return "tweet_ready"
 
+    @listen("regenerate_tweet")
+    def handle_regenerate_tweet(self):
+        self._generate_tweet()
+        return "tweet_ready"
+
+    def _generate_tweet(self):
         tweet = self.state.tweet
+
+        if tweet is None:
+            print("Generating new tweet...")
+        else:
+            print("Regenerating tweet (improving quality)...")
+
         llm = LLM(model="gpt-5-nano", response_format=Tweet)
         if tweet is None:
             result = llm.call(
@@ -148,9 +175,23 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             )
         self.state.tweet = result
 
-    @listen(or_("generate_linkedin_post", "regenerate_linkedin_post"))
+    @listen("generate_linkedin_post")
     def handle_generate_linkedin_post(self):
+        self._generate_linkedin_post()
+        return "linkedin_post_ready"
+
+    @listen("regenerate_linkedin_post")
+    def handle_regenerate_linkedin_post(self):
+        self._generate_linkedin_post()
+        return "linkedin_post_ready"
+
+    def _generate_linkedin_post(self):
         linkedin_post = self.state.linkedin_post
+
+        if linkedin_post is None:
+            print("Generating new LinkedIn post...")
+        else:
+            print("Regenerating LinkedIn post (improving quality)...")
 
         llm = LLM(model="gpt-5-nano", response_format=LinkedInPost)
 
@@ -180,9 +221,9 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             )
         self.state.linkedin_post = result
 
-    @listen(handle_generate_blog_post)
+    @listen("blog_post_ready")
     def check_seo(self):
-
+        print("Running SEO check...")
         result = (
             SeoCrew()
             .crew()
@@ -194,9 +235,12 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             )
         )
         self.state.score = result.pydantic
+        print(f"📊 SEO Check Complete - Score: {self.state.score.score}/10")
+        return "score_ready"
 
-    @listen(or_(handle_generate_tweet, handle_generate_linkedin_post))
+    @listen(or_("tweet_ready", "linkedin_post_ready"))
     def check_virality(self):
+        print("🚀 Running virality check...")
         result = (
             ViralityCrew()
             .crew()
@@ -209,21 +253,29 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             )
         )
         self.state.score = result.pydantic
+        print(f"📊 Virality Check Complete - Score: {self.state.score.score}/10")
+        return "score_ready"
 
-    @router(or_(check_seo, check_virality))
+    @router("score_ready")
     def score_router(self):
         content_type = self.state.content_type
         score = self.state.score
 
-        if score.score >= 5:
+        print(f"🔍 Score Router - Content Type: {content_type}, Score: {score.score}/10")
+
+        if score.score >= 7:
+            print("✅ Score passed threshold (>= 7), proceeding to finalize")
             return "check_passed"
-        else:
-            if content_type == "blog_post":
-                return "regenerate_blog_post"
-            elif content_type == "tweet":
-                return "regenerate_tweet"
-            elif content_type == "linkedin_post":
-                return "regenerate_linkedin_post"
+
+        # Score is below threshold, regenerate
+        print(f"🔄 Score below threshold ({score.score} < 7), regenerating {content_type}")
+
+        if content_type == "blog_post":
+            return "regenerate_blog_post"
+        elif content_type == "tweet":
+            return "regenerate_tweet"
+        else:  # linkedin_post
+            return "regenerate_linkedin_post"
 
     @listen("check_passed")
     def finalize_content(self):
@@ -251,6 +303,7 @@ class ContentPipelineFlow(Flow[ContentPipelineState]):
             ))
 
 
-flow = ContentPipelineFlow()
-flow.kickoff(inputs={"content_type": "tweet", "topic": "The Future of AI in Content Creation"})
-flow.plot("content_pipeline_flow.html")
+if __name__ == "__main__":
+    flow = ContentPipelineFlow()
+    flow.kickoff(inputs={"content_type": "tweet", "topic": "The Future of AI in Content Creation"})
+    flow.plot("content_pipeline_flow.html")
