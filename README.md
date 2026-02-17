@@ -2,6 +2,11 @@
 
 An AI-powered content generation pipeline built with [CrewAI](https://crewai.com) that creates high-quality blog posts, tweets, and LinkedIn posts with automated SEO and virality optimization.
 
+## Demo
+
+https://github.com/user-attachments/assets/c81b449b-ef6c-4d9b-bbf5-55ef09b3e4aa
+
+
 ## 📋 Overview
 
 This project implements a multi-agent content pipeline that:
@@ -63,8 +68,8 @@ content-pipeline-agent/
 ### Step 1: Clone the Repository
 
 ```bash
-git clone <repository-url>
-cd content-pipeline-agent
+git clone https://github.com/rawnakjain/contricrew-content-pipeline-agent.git
+cd conticrew-content-pipeline-agent
 ```
 
 ### Step 2: Install Dependencies
